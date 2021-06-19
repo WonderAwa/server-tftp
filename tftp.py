@@ -9,29 +9,35 @@ import sys
 ########################################################################
 #                          COMMON ROUTINES                             #
 ########################################################################
+
+""" Send a request WRQ to put a file"""
 def requestWRQ(sock,addr,filename,mode,blksize):
-    h='blksize'
-    msg= b'\x00\x02'+ bytes(filename.encode()) +bytes(1)+ bytes(mode.encode())+bytes(1)+bytes(h.encode())+bytes(1)+bytes(str(blksize).encode())+bytes(1)
+    blocksize='blksize'
+    msg= b'\x00\x02'+ bytes(filename.encode()) +bytes(1)+ bytes(mode.encode())+bytes(1)+bytes(blocksize.encode())+bytes(1)+bytes(str(blksize).encode())+bytes(1)
     sock.sendto(msg,addr)
 
-
+""" Send a request RRQ to get a file"""
 def requestRRQ(sock,addr,filename,mode,blksize):
-    h='blksize'
-    msg= b'\x00\x01'+ bytes(filename.encode()) +bytes(1)+ bytes(mode.encode())+bytes(1)+bytes(h.encode())+bytes(1)+bytes(str(blksize).encode())+bytes(1)
+    blocksize='blksize'
+    msg= b'\x00\x01'+ bytes(filename.encode()) +bytes(1)+ bytes(mode.encode())+bytes(1)+bytes(blocksize.encode())+bytes(1)+bytes(str(blksize).encode())+bytes(1)
     sock.sendto(msg,addr)
-    
+
+""" send an acquittal"""
 def send_ack(sock, addr, i):
     msg= b'\x00\x04'+bytes(1)+bytes([i])
     sock.sendto(msg,addr)
 
+""" send a block of file """
 def send_data(sock,addr,data,i):
     msg=b'\x00\x03'+bytes(1)+bytes([i])+data
     sock.sendto(msg,addr)
 
+"""send a message of error"""
 def sendERROR(sock,addr,errorCode,errorMSG) : 
     msg= b'\x00\x05'+ bytes([errorCode]) + bytes(errorMSG.encode())+bytes(1)
     sock.sendto(msg,addr)
    
+""" decompose the received message"""
 def recevoir(msg):
     dic= {} 
     msg1 = msg[0:2]                               
@@ -64,25 +70,26 @@ def recevoir(msg):
         dic["data"]=data
     return dic
 
+""" Receive file"""
 def recv_file(filename,sock,blksize):
-    f= open(filename,"wb")
+    file= open(filename,"wb")
     while True:
         msg,addr = sock.recvfrom(1500)
         dic=recevoir(msg)
         if dic["opcode"]== 3:
-            f.write(dic["data"])
+            file.write(dic["data"])
             send_ack(sock, addr, dic["nb_data"])
         if len(dic["data"]) < blksize:
             break
-    f.close()
+    file.close()
 
 
-
+""" send file """
 def send_file(filename,sock,blksize,addr):
     i=1
-    f=open(filename,'rb')
+    file=open(filename,'rb')
     while True:
-        data= f.read(blksize)
+        data= file.read(blksize)
         send_data(sock,addr,data,i)
         msg,addr = sock.recvfrom(1500)
         dic=recevoir(msg)
@@ -90,7 +97,7 @@ def send_file(filename,sock,blksize,addr):
             i=i+1
         if len(data) < blksize:
             break
-    f.close()
+    file.close()
  
 
 ########################################################################
@@ -112,6 +119,7 @@ def runServer(addr, timeout, thread):
         ###GET###
         if dic["opcode"] ==1:
             send_file(dic["filename"],sock,blksize,addr)
+
         ###PUT###
         if dic["opcode"] == 2:
             send_ack(sock, addr, 0)
